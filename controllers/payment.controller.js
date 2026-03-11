@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import Plan from "../models/Plan.js";
 import VendorSubscription from "../models/VendorSubscription.js";
-import razorpay from "../config/razorpay.js";
+import getRazorpay, { hasRazorpayConfig } from "../config/razorpay.js";
 import { success, error } from "../utils/response.utils.js";
 
 export const getPlans = async (_req, res) => {
@@ -16,6 +16,10 @@ export const getPlans = async (_req, res) => {
 export const createOrder = async (req, res) => {
   try {
     const { planId, name, email } = req.body;
+
+    if (!hasRazorpayConfig()) {
+      return error(res, "Razorpay is not configured on the server", 500);
+    }
 
     if (!planId) return error(res, "Plan is required", 400);
 
@@ -39,6 +43,7 @@ export const createOrder = async (req, res) => {
       );
     }
 
+    const razorpay = getRazorpay();
     const order = await razorpay.orders.create({
       amount: Math.round(plan.price * 100),
       currency: plan.currency,
@@ -79,6 +84,10 @@ export const verifyPayment = async (req, res) => {
       razorpay_payment_id,
       razorpay_signature,
     } = req.body;
+
+    if (!hasRazorpayConfig()) {
+      return error(res, "Razorpay is not configured on the server", 500);
+    }
 
     if (!subscriptionId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return error(res, "Payment verification fields are required", 400);
@@ -126,6 +135,10 @@ export const verifyPayment = async (req, res) => {
 
 export const handleWebhook = async (req, res) => {
   try {
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+      return res.status(500).json({ success: false, message: "Razorpay webhook secret is not configured" });
+    }
+
     const signature = req.headers["x-razorpay-signature"];
     const rawBody = req.rawBody || JSON.stringify(req.body || {});
 
