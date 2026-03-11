@@ -17,6 +17,12 @@ export const createOrder = async (req, res) => {
   try {
     const { planId, name, email } = req.body;
 
+    console.log("Razorpay env debug:", {
+      hasKeyId: Boolean(process.env.RAZORPAY_KEY_ID),
+      hasKeySecret: Boolean(process.env.RAZORPAY_KEY_SECRET),
+      hasWebhookSecret: Boolean(process.env.RAZORPAY_WEBHOOK_SECRET),
+    });
+
     if (!hasRazorpayConfig()) {
       return error(res, "Razorpay is not configured on the server", 500);
     }
