@@ -15,6 +15,8 @@ export const getAllVendors = async (req, res) => {
 
     const vendors = await Vendor.find(filter)
       .select("-password -resetPasswordToken -resetPasswordExpiry")
+      .populate("currentPlan", "name code price durationInDays")
+      .populate("currentSubscription", "status paymentStatus startDate endDate")
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .sort({ createdAt: -1 });
@@ -30,7 +32,9 @@ export const getAllVendors = async (req, res) => {
 export const getVendorById = async (req, res) => {
   try {
     const vendor = await Vendor.findById(req.params.id)
-      .select("-password -resetPasswordToken -resetPasswordExpiry");
+      .select("-password -resetPasswordToken -resetPasswordExpiry")
+      .populate("currentPlan", "name code price durationInDays")
+      .populate("currentSubscription", "status paymentStatus startDate endDate");
 
     if (!vendor) return error(res, "Vendor not found", 404);
 
@@ -43,7 +47,9 @@ export const getVendorById = async (req, res) => {
 export const getMyVendorProfile = async (req, res) => {
   try {
     const vendor = await Vendor.findById(req.user.id)
-      .select("-password -resetPasswordToken -resetPasswordExpiry");
+      .select("-password -resetPasswordToken -resetPasswordExpiry")
+      .populate("currentPlan", "name code price durationInDays")
+      .populate("currentSubscription", "status paymentStatus startDate endDate");
 
     if (!vendor) return error(res, "Vendor not found", 404);
 

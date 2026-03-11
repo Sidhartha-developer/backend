@@ -15,6 +15,7 @@ import categoryRoutes     from "./routes/category.routes.js";
 import requestRoutes      from "./routes/request.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import adminRoutes        from "./routes/admin.routes.js";
+import paymentRoutes      from "./routes/payment.routes.js";
 
 import errorHandler from "./middleware/error.middleware.js";
 
@@ -32,7 +33,11 @@ app.set("views", path.join(__dirname, "views"));
 
 /* ===== Middlewares ===== */
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf.toString();
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
@@ -44,6 +49,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/payment", paymentRoutes);
 
 /* ===== Error Handler ===== */
 app.use(errorHandler);

@@ -77,8 +77,40 @@ const vendorSchema = new mongoose.Schema(
     {
       type: Date,
     },
+    paymentId: {
+      type: String,
+    },
+    paymentOrderId: {
+      type: String,
+    },
+    paymentStatus: {
+      type: String,
+      default: "pending",
+      enum: ["pending", "paid", "failed", "refunded"],
+    },
+    currentPlan: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Plan",
+      default: null,
+    },
+    currentSubscription: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "VendorSubscription",
+      default: null,
+    },
+    subscriptionStatus: {
+      type: String,
+      default: "inactive",
+      enum: ["inactive", "active", "expired", "cancelled"],
+    },
+    subscriptionStartDate: {
+      type: Date,
+    },
+    subscriptionEndDate: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Vendor", vendorSchema);
+export default mongoose.models.Vendor || mongoose.model("Vendor", vendorSchema);

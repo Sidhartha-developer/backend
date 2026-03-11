@@ -3,6 +3,8 @@ import bcrypt  from "bcryptjs";
 import User    from "../models/User.js";
 import Vendor  from "../models/Vendor.js";
 import Admin   from "../models/Admin.js";
+import Plan from "../models/Plan.js";
+import VendorSubscription from "../models/VendorSubscription.js";
 import { generateToken }  from "../utils/jwt.utils.js";
 import { success, error } from "../utils/response.utils.js";
 import { uploadImage }    from "../services/cloudinary.service.js";
@@ -73,15 +75,59 @@ export const login = async (req, res) => {
 
 export const registerVendor = async (req, res) => {
   try {
-    const { name, email, password, phone, address, lat, lng } = req.body;
+    const {
+      name,
+      email,
+      password,
+      phone,
+      address,
+      lat,
+      lng,
+      planId,
+      subscriptionId,
+      paymentId,
+      paymentOrderId,
+      paymentSignature,
+    } = req.body;
 
     if (!name || !email || !password || !phone || !address)
       return error(res, "Name, email, password, phone and address are required", 400);
 
+    if (!planId || !subscriptionId || !paymentId || !paymentOrderId || !paymentSignature) {
+      return error(res, "Valid plan payment is required for vendor registration", 400);
+    }
+
     const exists = await Vendor.findOne({ email });
     if (exists) return error(res, "Email already registered", 409);
 
+    const [plan, subscription] = await Promise.all([
+      Plan.findOne({ _id: planId, isActive: { $ne: false } }),
+      VendorSubscription.findById(subscriptionId),
+    ]);
+
+    if (!plan) return error(res, "Selected plan not found", 404);
+    if (!subscription) return error(res, "Subscription not found", 404);
+
+    if (subscription.paymentStatus !== "paid") {
+      return error(res, "Payment is not verified for this subscription", 400);
+    }
+
+    if (subscription.vendor) {
+      return error(res, "This subscription has already been used", 400);
+    }
+
+    if (
+      subscription.plan.toString() !== planId ||
+      subscription.razorpayOrderId !== paymentOrderId ||
+      subscription.razorpayPaymentId !== paymentId ||
+      subscription.razorpaySignature !== paymentSignature
+    ) {
+      return error(res, "Payment details do not match subscription", 400);
+    }
+
     const hashed = await bcrypt.hash(password, 12);
+    const startDate = new Date();
+    const endDate = new Date(startDate.getTime() + plan.durationInDays * 24 * 60 * 60 * 1000);
 
     // Creating vendor first (without image)
     const vendor = await Vendor.create({
@@ -94,7 +140,41 @@ export const registerVendor = async (req, res) => {
         lat: lat ? Number(lat) : undefined,
         lng: lng ? Number(lng) : undefined,
       },
+      paymentId,
+      paymentOrderId,
+      paymentStatus: "paid",
+      currentPlan: plan._id,
+      subscriptionStatus: "active",
+      subscriptionStartDate: startDate,
+      subscriptionEndDate: endDate,
     });
+
+    subscription.vendor = vendor._id;
+    subscription.status = "active";
+    subscription.startDate = startDate;
+    subscription.endDate = endDate;
+    subscription.applicantName = name;
+    subscription.applicantEmail = email;
+    await subscription.save();
+
+    await VendorSubscription.updateMany(
+      {
+        _id: { $ne: subscription._id },
+        vendor: null,
+        plan: plan._id,
+        applicantEmail: email.toLowerCase(),
+        paymentStatus: "pending",
+        status: "pending",
+      },
+      {
+        $set: {
+          status: "cancelled",
+        },
+      }
+    );
+
+    vendor.currentSubscription = subscription._id;
+    await vendor.save();
 
     //Try uploading image (do NOT block registration)
     if (req.file) {
@@ -111,7 +191,17 @@ export const registerVendor = async (req, res) => {
 
     return success(
       res,
-      { id: vendor._id, name, email },
+      {
+        id: vendor._id,
+        name,
+        email,
+        plan: {
+          id: plan._id,
+          name: plan.name,
+          price: plan.price,
+          durationInDays: plan.durationInDays,
+        },
+      },
       "Registration submitted. Awaiting admin approval.",
       201
     );

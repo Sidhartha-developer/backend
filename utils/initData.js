@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import Admin from "../models/Admin.js";
+import Plan from "../models/Plan.js";
 import ScrapCategory from "../models/ScrapCategory.js";
 
 export const initData = async () => {
@@ -38,6 +39,28 @@ export const initData = async () => {
       ]);
 
       console.log("✅ Default categories added");
+    }
+
+    /* ===== Plans Check ===== */
+    const planCount = await Plan.countDocuments();
+
+    if (planCount > 0) {
+      console.log("ℹ️ Plans already exist");
+    } else {
+      await Plan.insertMany([
+        {
+          name: "Yearly",
+          code: "YEARLY99",
+          description: "Yearly vendor subscription plan.",
+          price: 99,
+          durationInDays: 365,
+          features: ["365 days access", "Vendor listing", "Request access"],
+          isActive: true,
+        },
+        
+      ]);
+
+      console.log("✅ Default plans added");
     }
 
   } catch (err) {
