@@ -14,12 +14,13 @@ const scrapRequestSchema = new mongoose.Schema(
       ref: "Vendor",
       default: null,
     },
-    categoryId:
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "ScrapCategory",
-      required: true,
-    },
+categoryIds: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "ScrapCategory",
+    required: true,
+  },
+],
     pickupAddress:
     {
       type: String,
@@ -44,6 +45,15 @@ const scrapRequestSchema = new mongoose.Schema(
     {
       type: Number,
     },
+    scrapType: {
+  type: String,
+  enum: ["household", "shop", "small_industry", "large_industry"],
+  required: true,
+},
+vehicleType: {
+  type: String,
+  enum: ["2_wheeler", "3_wheeler", "4_wheeler"],
+},
     preferredDate:
     {
       type: Date,

@@ -16,6 +16,7 @@ import requestRoutes      from "./routes/request.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import adminRoutes        from "./routes/admin.routes.js";
 import paymentRoutes      from "./routes/payment.routes.js";
+import scrapPriceRoutes from "./routes/scrapPrice.routes.js";
 
 import errorHandler from "./middleware/error.middleware.js";
 
@@ -50,6 +51,7 @@ app.use("/api/requests", requestRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/prices", scrapPriceRoutes);
 
 /* ===== Error Handler ===== */
 app.use(errorHandler);

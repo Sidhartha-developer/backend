@@ -83,6 +83,8 @@ export const registerVendor = async (req, res) => {
       address,
       lat,
       lng,
+      vehicleTypes,
+      scrapTypes,
       planId,
       subscriptionId,
       paymentId,
@@ -95,6 +97,10 @@ export const registerVendor = async (req, res) => {
 
     if (!planId || !subscriptionId || !paymentId || !paymentOrderId || !paymentSignature) {
       return error(res, "Valid plan payment is required for vendor registration", 400);
+    }
+
+    if (!vehicleTypes?.length || !scrapTypes?.length) {
+      return error(res, "Vehicle types and scrap types are required", 400);
     }
 
     const exists = await Vendor.findOne({ email });
@@ -136,6 +142,8 @@ export const registerVendor = async (req, res) => {
       password: hashed,
       phone,
       address,
+      vehicleTypes,
+      scrapTypes,
       location: {
         lat: lat ? Number(lat) : undefined,
         lng: lng ? Number(lng) : undefined,

@@ -62,6 +62,7 @@ export const getMyVendorProfile = async (req, res) => {
 export const getNearbyVendors = async (req, res) => {
   try {
     const { lat, lng } = req.query;
+    const { scrapType, vehicleType } = req.query;
 
     if (lat === undefined || lng === undefined) {
       return error(res, "lat and lng query params are required", 400);
@@ -78,12 +79,19 @@ export const getNearbyVendors = async (req, res) => {
       return error(res, "Invalid latitude or longitude range", 400);
     }
 
-    const vendors = await Vendor.find({
-      approvalStatus: "approved",
-      status: "active",
-      "location.lat": { $exists: true, $ne: null },
-      "location.lng": { $exists: true, $ne: null },
-    }).select("name phone location");
+
+const filter = {
+  approvalStatus: "approved",
+  status: "active",
+  "location.lat": { $exists: true, $ne: null },
+  "location.lng": { $exists: true, $ne: null },
+};
+
+if (vehicleType) filter.vehicleTypes = vehicleType;
+if (scrapType) filter.scrapTypes = scrapType;
+
+const vendors = await Vendor.find(filter)
+  .select("name phone location vehicleTypes scrapTypes");
 
     const nearby = vendors
       .map((vendor) => {
@@ -176,17 +184,26 @@ export const blockVendor = async (req, res) => {
 
 export const updateVendor = async (req, res) => {
   try {
-    const { name, phone, address, lat, lng } = req.body;
+    const { name, phone, address, lat, lng, vehicleTypes, scrapTypes  } = req.body;
 
     if (!name && !phone && !address && !lat && !lng) {
       return error(res, "Provide at least one field to update", 400);
     }
 
+    if (vehicleTypes && !Array.isArray(vehicleTypes)) {
+      return error(res, "vehicleTypes must be an array", 400);
+    }
+
+    if (scrapTypes && !Array.isArray(scrapTypes)) {
+      return error(res, "scrapTypes must be an array", 400);
+    }
     const update = {};
     if (name)    update.name    = name;
     if (phone)   update.phone   = phone;
     if (address) update.address = address;
     if (lat && lng) update.location = { lat: Number(lat), lng: Number(lng) };
+    if (vehicleTypes) update.vehicleTypes = vehicleTypes;
+    if (scrapTypes) update.scrapTypes = scrapTypes;
 
     const vendor = await Vendor.findByIdAndUpdate(req.params.id, update, { new: true })
       .select("-password -resetPasswordToken -resetPasswordExpiry");

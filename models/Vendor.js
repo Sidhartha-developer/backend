@@ -27,6 +27,23 @@ const vendorSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+      vehicleTypes: [
+    {
+      type: String,
+      enum: ["2_wheeler", "3_wheeler", "4_wheeler"],
+      default: [],
+      required: true,
+    },
+  ],
+
+  scrapTypes: [
+    {
+      type: String,
+      enum: ["household", "shop", "small_industry", "large_industry"],
+      default: [],
+      required: true,
+    },
+  ],
     address:
     {
       type: String,

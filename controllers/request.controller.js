@@ -9,13 +9,25 @@ import { sendSMS } from "../services/sms.service.js";
 
 export const createRequest = async (req, res) => {
   try {
-    const { categoryId, pickupAddress, lat, lng, description, preferredDate, estimatedWeight } = req.body;
+    const { categoryIds, scrapType, pickupAddress, lat, lng, description, preferredDate, estimatedWeight } = req.body;
 
-    if (!categoryId || !pickupAddress)
+    let vehicleType;
+
+if (estimatedWeight < 100) vehicleType = "2_wheeler";
+else if (estimatedWeight <= 700) vehicleType = "3_wheeler";
+else vehicleType = "4_wheeler";
+
+    if (!categoryIds || !categoryIds.length || !pickupAddress || !scrapType)
       return error(res, "Category and pickup address are required", 400);
 
-    const categoryExists = await ScrapCategory.findOne({ _id: categoryId, isActive: true });
-    if (!categoryExists) return error(res, "Invalid or inactive category", 400);
+const categories = await ScrapCategory.find({
+  _id: { $in: categoryIds },
+  isActive: true,
+});
+
+if (!categories.length) {
+  return error(res, "Invalid or inactive categories", 400);
+}
 
     // upload each file buffer to cloudinary
     const images = [];
@@ -26,9 +38,10 @@ export const createRequest = async (req, res) => {
       }
     }
 
-    const request = await ScrapRequest.create({
-      userId: req.user.id,
-      categoryId,
+const request = await ScrapRequest.create({
+  userId: req.user.id,
+  categoryIds,
+  scrapType,
       pickupAddress,
       location: {
         lat: lat ? Number(lat) : undefined,
@@ -37,6 +50,7 @@ export const createRequest = async (req, res) => {
       description,
       preferredDate:   preferredDate   || undefined,
       estimatedWeight: estimatedWeight ? Number(estimatedWeight) : undefined,
+      vehicleType,
       images,
     });
 
@@ -65,12 +79,12 @@ export const getAllRequests = async (req, res) => {
 
     const filter = {};
     if (status)     filter.status     = status;
-    if (categoryId) filter.categoryId = categoryId;
+    if (categoryId) filter.categoryIds = categoryId;
 
     const requests = await ScrapRequest.find(filter)
       .populate("userId",     "name email phone")
       .populate("vendorId",   "name email phone")
-      .populate("categoryId", "name iconUrl")
+      .populate("categoryIds", "name iconUrl")
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .sort({ createdAt: -1 });
@@ -91,7 +105,7 @@ export const getMyRequests = async (req, res) => {
     if (status) filter.status = status;
 
     const requests = await ScrapRequest.find(filter)
-      .populate("categoryId", "name iconUrl")
+      .populate("categoryIds", "name iconUrl")
       .populate("vendorId",   "name phone")
       .sort({ createdAt: -1 });
 
@@ -118,7 +132,7 @@ export const getVendorFeed = async (req, res) => {
     const requests = await ScrapRequest.find(filter)
       .populate("userId",     "name phone")
       .populate("vendorId",   "name")
-      .populate("categoryId", "name iconUrl")
+      .populate("categoryIds", "name iconUrl")
       .sort({ createdAt: -1 });
 
     return success(res, { requests });
@@ -129,10 +143,14 @@ export const getVendorFeed = async (req, res) => {
 
 export const getRequestById = async (req, res) => {
   try {
-    const request = await ScrapRequest.findById(req.params.id)
-      .populate("userId",     "name email phone")
-      .populate("vendorId",   "name email phone")
-      .populate("categoryId", "name description iconUrl");
+const request = await ScrapRequest.findById(req.params.id)
+  .populate("userId", "name email phone")
+  .populate("vendorId", "name email phone")
+  .populate({
+    path: "categoryIds",
+    model: "ScrapCategory",
+  });
+  console.log("REQUEST:", request);
 
     if (!request) return error(res, "Request not found", 404);
 
