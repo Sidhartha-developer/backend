@@ -720,3 +720,343 @@ async (req, res) => {
     );
   }
 };
+
+/*
+|--------------------------------------------------------------------------
+| GET NEARBY VENDORS
+|--------------------------------------------------------------------------
+*/
+
+export const getNearbyVendors =
+async (req, res) => {
+
+  try {
+
+    const {
+      lat,
+      lng,
+      radius = 20,
+    } = req.query;
+
+    if (!lat || !lng) {
+
+      return error(
+        res,
+        "Latitude and longitude are required",
+        400
+      );
+    }
+
+    const vendors =
+      await Vendor.find({
+
+        approvalStatus:
+          "approved",
+
+        status:
+          "active",
+      })
+
+      .select(
+        "-password -resetPasswordToken -resetPasswordExpiry"
+      );
+
+    const nearbyVendors =
+      vendors.filter((vendor) => {
+
+        if (
+          !vendor.location?.lat ||
+          !vendor.location?.lng
+        ) {
+          return false;
+        }
+
+        const distance =
+          haversineKm(
+
+            Number(lat),
+            Number(lng),
+
+            vendor.location.lat,
+            vendor.location.lng
+          );
+
+        return distance <= Number(radius);
+      });
+
+    return success(
+      res,
+      { vendors: nearbyVendors }
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| APPROVE VENDOR
+|--------------------------------------------------------------------------
+*/
+
+export const approveVendor =
+async (req, res) => {
+
+  try {
+
+    const vendor =
+      await Vendor.findById(
+        req.params.id
+      );
+
+    if (!vendor) {
+
+      return error(
+        res,
+        "Vendor not found",
+        404
+      );
+    }
+
+    vendor.approvalStatus =
+      "approved";
+
+    vendor.subscriptionStatus =
+      "active";
+
+    vendor.subscriptionStartDate =
+      new Date();
+
+    await vendor.save();
+
+    /*
+    |--------------------------------------------------------------------------
+    | NOTIFICATION
+    |--------------------------------------------------------------------------
+    */
+
+    await createNotification({
+
+      recipientId:
+        vendor._id,
+
+      recipientModel:
+        "Vendor",
+
+      message:
+        "Your vendor account has been approved successfully.",
+
+      type:
+        "vendor_approved",
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | EMAIL
+    |--------------------------------------------------------------------------
+    */
+
+    try {
+
+      await sendVendorApprovalEmail(
+        vendor.email,
+        vendor.name
+      );
+
+    } catch (_) {}
+
+    return success(
+      res,
+      { vendor },
+      "Vendor approved successfully"
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| REJECT VENDOR
+|--------------------------------------------------------------------------
+*/
+
+export const rejectVendor =
+async (req, res) => {
+
+  try {
+
+    const vendor =
+      await Vendor.findById(
+        req.params.id
+      );
+
+    if (!vendor) {
+
+      return error(
+        res,
+        "Vendor not found",
+        404
+      );
+    }
+
+    vendor.approvalStatus =
+      "rejected";
+
+    await vendor.save();
+
+    /*
+    |--------------------------------------------------------------------------
+    | NOTIFICATION
+    |--------------------------------------------------------------------------
+    */
+
+    await createNotification({
+
+      recipientId:
+        vendor._id,
+
+      recipientModel:
+        "Vendor",
+
+      message:
+        "Your vendor application has been rejected.",
+
+      type:
+        "vendor_rejected",
+    });
+
+    return success(
+      res,
+      { vendor },
+      "Vendor rejected successfully"
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| BLOCK VENDOR
+|--------------------------------------------------------------------------
+*/
+
+export const blockVendor =
+async (req, res) => {
+
+  try {
+
+    const vendor =
+      await Vendor.findById(
+        req.params.id
+      );
+
+    if (!vendor) {
+
+      return error(
+        res,
+        "Vendor not found",
+        404
+      );
+    }
+
+    vendor.status =
+      vendor.status === "blocked"
+        ? "active"
+        : "blocked";
+
+    await vendor.save();
+
+    return success(
+      res,
+      { vendor },
+      `Vendor ${vendor.status} successfully`
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| UPDATE VENDOR
+|--------------------------------------------------------------------------
+*/
+
+export const updateVendor =
+async (req, res) => {
+
+  try {
+
+    const vendor =
+      await Vendor.findById(
+        req.user.id
+      );
+
+    if (!vendor) {
+
+      return error(
+        res,
+        "Vendor not found",
+        404
+      );
+    }
+
+    const allowedFields = [
+
+      "name",
+      "phone",
+      "address",
+      "vehicleTypes",
+      "scrapTypes",
+    ];
+
+    allowedFields.forEach((field) => {
+
+      if (
+        req.body[field] !==
+        undefined
+      ) {
+
+        vendor[field] =
+          req.body[field];
+      }
+    });
+
+    await vendor.save();
+
+    return success(
+      res,
+      { vendor },
+      "Vendor updated successfully"
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
