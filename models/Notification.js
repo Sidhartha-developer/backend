@@ -21,7 +21,7 @@ const notificationSchema = new mongoose.Schema(
     type:
     {
       type: String,
-      enum: ["request_created", "request_accepted", "status_update", "vendor_approved", "broadcast"],
+        enum: [ "request_created", "request_accepted", "status_update", "vendor_application_submitted", "vendor_approved", "vendor_rejected", "payment_success", "broadcast", ],
     },
     requestId:
     {

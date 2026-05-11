@@ -27,14 +27,168 @@ import {
 
 /*
 |--------------------------------------------------------------------------
+| HELPERS
+|--------------------------------------------------------------------------
+*/
+
+const validateVendorFields = ({
+  name,
+  email,
+  password,
+  phone,
+  address,
+  subscriptionId,
+  planId,
+}) => {
+
+  if (
+    !name ||
+    !email ||
+    !password ||
+    !phone ||
+    !address ||
+    !subscriptionId ||
+    !planId
+  ) {
+
+    return "All required fields are mandatory";
+  }
+
+  const emailRegex =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+
+    return "Invalid email format";
+  }
+
+  if (password.length < 8) {
+
+    return "Password must be at least 8 characters";
+  }
+
+  if (phone.length < 10) {
+
+    return "Invalid phone number";
+  }
+
+  return null;
+};
+
+const parseArrayField = (
+  value
+) => {
+
+  try {
+
+    return JSON.parse(value);
+
+  } catch {
+
+    return null;
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| CHECK EMAIL
+|--------------------------------------------------------------------------
+*/
+
+export const checkVendorEmail =
+async (req, res) => {
+
+  try {
+
+    const { email } =
+      req.body;
+
+    if (!email) {
+
+      return error(
+        res,
+        "Email is required",
+        400
+      );
+    }
+
+    const existingVendor =
+      await Vendor.findOne({
+
+        email:
+          email.toLowerCase(),
+      });
+
+    return success(
+      res,
+      {
+        exists:
+          !!existingVendor,
+      }
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| CHECK PHONE
+|--------------------------------------------------------------------------
+*/
+
+export const checkVendorPhone =
+async (req, res) => {
+
+  try {
+
+    const { phone } =
+      req.body;
+
+    if (!phone) {
+
+      return error(
+        res,
+        "Phone is required",
+        400
+      );
+    }
+
+    const existingVendor =
+      await Vendor.findOne({
+        phone,
+      });
+
+    return success(
+      res,
+      {
+        exists:
+          !!existingVendor,
+      }
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
 | APPLY VENDOR
 |--------------------------------------------------------------------------
 */
 
-export const applyVendor = async (
-  req,
-  res
-) => {
+export const applyVendor =
+async (req, res) => {
 
   try {
 
@@ -58,19 +212,23 @@ export const applyVendor = async (
     |--------------------------------------------------------------------------
     */
 
-    if (
-      !name ||
-      !email ||
-      !password ||
-      !phone ||
-      !address ||
-      !subscriptionId ||
-      !planId
-    ) {
+    const validationError =
+      validateVendorFields({
+
+        name,
+        email,
+        password,
+        phone,
+        address,
+        subscriptionId,
+        planId,
+      });
+
+    if (validationError) {
 
       return error(
         res,
-        "All required fields are mandatory",
+        validationError,
         400
       );
     }
@@ -86,13 +244,65 @@ export const applyVendor = async (
 
     /*
     |--------------------------------------------------------------------------
+    | PARSE ARRAYS
+    |--------------------------------------------------------------------------
+    */
+
+    const parsedVehicleTypes =
+      parseArrayField(
+        vehicleTypes
+      );
+
+    const parsedScrapTypes =
+      parseArrayField(
+        scrapTypes
+      );
+
+    if (
+      !parsedVehicleTypes ||
+      !parsedScrapTypes
+    ) {
+
+      return error(
+        res,
+        "Invalid vehicleTypes or scrapTypes format",
+        400
+      );
+    }
+
+    if (
+      !parsedVehicleTypes.length
+    ) {
+
+      return error(
+        res,
+        "Select at least one vehicle type",
+        400
+      );
+    }
+
+    if (
+      !parsedScrapTypes.length
+    ) {
+
+      return error(
+        res,
+        "Select at least one scrap type",
+        400
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | CHECK EXISTING VENDOR
     |--------------------------------------------------------------------------
     */
 
     const existingVendor =
       await Vendor.findOne({
-        email: email.toLowerCase(),
+
+        email:
+          email.toLowerCase(),
       });
 
     if (existingVendor) {
@@ -100,6 +310,26 @@ export const applyVendor = async (
       return error(
         res,
         "Vendor already exists with this email",
+        400
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK EXISTING PHONE
+    |--------------------------------------------------------------------------
+    */
+
+    const existingPhone =
+      await Vendor.findOne({
+        phone,
+      });
+
+    if (existingPhone) {
+
+      return error(
+        res,
+        "Phone number already registered",
         400
       );
     }
@@ -179,32 +409,6 @@ export const applyVendor = async (
 
     /*
     |--------------------------------------------------------------------------
-    | PARSE ARRAYS
-    |--------------------------------------------------------------------------
-    */
-
-    let parsedVehicleTypes = [];
-    let parsedScrapTypes = [];
-
-    try {
-
-      parsedVehicleTypes =
-        JSON.parse(vehicleTypes);
-
-      parsedScrapTypes =
-        JSON.parse(scrapTypes);
-
-    } catch {
-
-      return error(
-        res,
-        "Invalid vehicleTypes or scrapTypes format",
-        400
-      );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
     | CREATE VENDOR
     |--------------------------------------------------------------------------
     */
@@ -225,6 +429,7 @@ export const applyVendor = async (
         address,
 
         location: {
+
           lat: lat
             ? Number(lat)
             : null,
@@ -330,85 +535,85 @@ export const applyVendor = async (
 */
 
 export const getAllVendors =
-  async (req, res) => {
+async (req, res) => {
 
-    try {
+  try {
 
-      const {
-        approvalStatus,
-        status,
-        search,
-        page = 1,
-        limit = 10,
-      } = req.query;
+    const {
+      approvalStatus,
+      status,
+      search,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
-      const filter = {};
+    const filter = {};
 
-      if (approvalStatus) {
-        filter.approvalStatus =
-          approvalStatus;
-      }
-
-      if (status) {
-        filter.status = status;
-      }
-
-      if (search) {
-        filter.name = {
-          $regex: search,
-          $options: "i",
-        };
-      }
-
-      const vendors =
-        await Vendor.find(filter)
-
-          .select(
-            "-password -resetPasswordToken -resetPasswordExpiry"
-          )
-
-          .populate(
-            "currentPlan",
-            "name code price durationInDays"
-          )
-
-          .populate(
-            "currentSubscription",
-            "status paymentStatus startDate endDate"
-          )
-
-          .skip(
-            (page - 1) * limit
-          )
-
-          .limit(Number(limit))
-
-          .sort({
-            createdAt: -1,
-          });
-
-      const total =
-        await Vendor.countDocuments(
-          filter
-        );
-
-      return success(
-        res,
-        {
-          vendors,
-          total,
-          page: Number(page),
-        }
-      );
-
-    } catch (err) {
-
-      return error(
-        res,
-        err.message
-      );
+    if (approvalStatus) {
+      filter.approvalStatus =
+        approvalStatus;
     }
-  };
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (search) {
+      filter.name = {
+        $regex: search,
+        $options: "i",
+      };
+    }
+
+    const vendors =
+      await Vendor.find(filter)
+
+        .select(
+          "-password -resetPasswordToken -resetPasswordExpiry"
+        )
+
+        .populate(
+          "currentPlan",
+          "name code price durationInDays"
+        )
+
+        .populate(
+          "currentSubscription",
+          "status paymentStatus startDate endDate"
+        )
+
+        .skip(
+          (page - 1) * limit
+        )
+
+        .limit(Number(limit))
+
+        .sort({
+          createdAt: -1,
+        });
+
+    const total =
+      await Vendor.countDocuments(
+        filter
+      );
+
+    return success(
+      res,
+      {
+        vendors,
+        total,
+        page: Number(page),
+      }
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
 
 /*
 |--------------------------------------------------------------------------
@@ -417,51 +622,51 @@ export const getAllVendors =
 */
 
 export const getVendorById =
-  async (req, res) => {
+async (req, res) => {
 
-    try {
+  try {
 
-      const vendor =
-        await Vendor.findById(
-          req.params.id
+    const vendor =
+      await Vendor.findById(
+        req.params.id
+      )
+
+        .select(
+          "-password -resetPasswordToken -resetPasswordExpiry"
         )
 
-          .select(
-            "-password -resetPasswordToken -resetPasswordExpiry"
-          )
+        .populate(
+          "currentPlan",
+          "name code price durationInDays"
+        )
 
-          .populate(
-            "currentPlan",
-            "name code price durationInDays"
-          )
-
-          .populate(
-            "currentSubscription",
-            "status paymentStatus startDate endDate"
-          );
-
-      if (!vendor) {
-
-        return error(
-          res,
-          "Vendor not found",
-          404
+        .populate(
+          "currentSubscription",
+          "status paymentStatus startDate endDate"
         );
-      }
 
-      return success(
-        res,
-        { vendor }
-      );
-
-    } catch (err) {
+    if (!vendor) {
 
       return error(
         res,
-        err.message
+        "Vendor not found",
+        404
       );
     }
-  };
+
+    return success(
+      res,
+      { vendor }
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
 
 /*
 |--------------------------------------------------------------------------
@@ -470,504 +675,48 @@ export const getVendorById =
 */
 
 export const getMyVendorProfile =
-  async (req, res) => {
+async (req, res) => {
 
-    try {
+  try {
 
-      const vendor =
-        await Vendor.findById(
-          req.user.id
+    const vendor =
+      await Vendor.findById(
+        req.user.id
+      )
+
+        .select(
+          "-password -resetPasswordToken -resetPasswordExpiry"
         )
 
-          .select(
-            "-password -resetPasswordToken -resetPasswordExpiry"
-          )
+        .populate(
+          "currentPlan",
+          "name code price durationInDays"
+        )
 
-          .populate(
-            "currentPlan",
-            "name code price durationInDays"
-          )
-
-          .populate(
-            "currentSubscription",
-            "status paymentStatus startDate endDate"
-          );
-
-      if (!vendor) {
-
-        return error(
-          res,
-          "Vendor not found",
-          404
+        .populate(
+          "currentSubscription",
+          "status paymentStatus startDate endDate"
         );
-      }
 
-      return success(
-        res,
-        { vendor }
-      );
-
-    } catch (err) {
+    if (!vendor) {
 
       return error(
         res,
-        err.message
+        "Vendor not found",
+        404
       );
     }
-  };
 
-/*
-|--------------------------------------------------------------------------
-| GET NEARBY VENDORS
-|--------------------------------------------------------------------------
-*/
-
-export const getNearbyVendors =
-  async (req, res) => {
-
-    try {
-
-      const {
-        lat,
-        lng,
-      } = req.query;
-
-      const {
-        scrapType,
-        vehicleType,
-      } = req.query;
-
-      if (
-        lat === undefined ||
-        lng === undefined
-      ) {
-
-        return error(
-          res,
-          "lat and lng query params are required",
-          400
-        );
-      }
-
-      const userLat =
-        Number(lat);
-
-      const userLng =
-        Number(lng);
-
-      if (
-        !Number.isFinite(userLat) ||
-        !Number.isFinite(userLng)
-      ) {
-
-        return error(
-          res,
-          "lat and lng must be valid numbers",
-          400
-        );
-      }
-
-      const filter = {
-
-        approvalStatus:
-          "approved",
-
-        status:
-          "active",
-
-        "location.lat": {
-          $exists: true,
-          $ne: null,
-        },
-
-        "location.lng": {
-          $exists: true,
-          $ne: null,
-        },
-      };
-
-      if (vehicleType) {
-        filter.vehicleTypes =
-          vehicleType;
-      }
-
-      if (scrapType) {
-        filter.scrapTypes =
-          scrapType;
-      }
-
-      const vendors =
-        await Vendor.find(filter)
-
-          .select(
-            "name phone location vehicleTypes scrapTypes"
-          );
-
-      const nearby = vendors
-
-        .map((vendor) => {
-
-          const vendorLat =
-            Number(
-              vendor.location?.lat
-            );
-
-          const vendorLng =
-            Number(
-              vendor.location?.lng
-            );
-
-          if (
-            !Number.isFinite(
-              vendorLat
-            ) ||
-
-            !Number.isFinite(
-              vendorLng
-            )
-          ) {
-            return null;
-          }
-
-          const distance =
-            haversineKm(
-              userLat,
-              userLng,
-              vendorLat,
-              vendorLng
-            );
-
-          if (distance > 10) {
-            return null;
-          }
-
-          return {
-
-            _id:
-              vendor._id,
-
-            name:
-              vendor.name,
-
-            phone:
-              vendor.phone,
-
-            location:
-              vendor.location,
-
-            distanceKm:
-              Number(
-                distance.toFixed(2)
-              ),
-          };
-        })
-
-        .filter(Boolean)
-
-        .sort(
-          (a, b) =>
-            a.distanceKm -
-            b.distanceKm
-        );
-
-      return success(
-        res,
-        {
-          vendors: nearby,
-        }
-      );
-
-    } catch (err) {
-
-      return error(
-        res,
-        err.message
-      );
-    }
-  };
-
-/*
-|--------------------------------------------------------------------------
-| APPROVE VENDOR
-|--------------------------------------------------------------------------
-*/
-
-export const approveVendor =
-  async (req, res) => {
-
-    try {
-
-      const vendor =
-        await Vendor.findById(
-          req.params.id
-        );
-
-      if (!vendor) {
-
-        return error(
-          res,
-          "Vendor not found",
-          404
-        );
-      }
-
-      if (
-        vendor.approvalStatus ===
-        "approved"
-      ) {
-
-        return error(
-          res,
-          "Vendor is already approved",
-          400
-        );
-      }
-
-      vendor.approvalStatus =
-        "approved";
-
-      vendor.subscriptionStatus =
-        "active";
-
-      await vendor.save();
-
-      await sendVendorApprovalEmail(
-        vendor.email,
-        "approved"
-      );
-
-      await createNotification({
-
-        recipientId:
-          vendor._id,
-
-        recipientModel:
-          "Vendor",
-
-        message:
-          "Your vendor account has been approved. You can now accept requests.",
-
-        type:
-          "vendor_approved",
-      });
-
-      return success(
-        res,
-        {},
-        "Vendor approved"
-      );
-
-    } catch (err) {
-
-      return error(
-        res,
-        err.message
-      );
-    }
-  };
-
-/*
-|--------------------------------------------------------------------------
-| REJECT VENDOR
-|--------------------------------------------------------------------------
-*/
-
-export const rejectVendor =
-  async (req, res) => {
-
-    try {
-
-      const vendor =
-        await Vendor.findById(
-          req.params.id
-        );
-
-      if (!vendor) {
-
-        return error(
-          res,
-          "Vendor not found",
-          404
-        );
-      }
-
-      vendor.approvalStatus =
-        "rejected";
-
-      await vendor.save();
-
-      await sendVendorApprovalEmail(
-        vendor.email,
-        "rejected"
-      );
-
-      return success(
-        res,
-        {},
-        "Vendor rejected"
-      );
-
-    } catch (err) {
-
-      return error(
-        res,
-        err.message
-      );
-    }
-  };
-
-/*
-|--------------------------------------------------------------------------
-| BLOCK VENDOR
-|--------------------------------------------------------------------------
-*/
-
-export const blockVendor =
-  async (req, res) => {
-
-    try {
-
-      const vendor =
-        await Vendor.findById(
-          req.params.id
-        );
-
-      if (!vendor) {
-
-        return error(
-          res,
-          "Vendor not found",
-          404
-        );
-      }
-
-      vendor.status =
-        vendor.status === "active"
-          ? "blocked"
-          : "active";
-
-      await vendor.save();
-
-      return success(
-        res,
-        {
-          status:
-            vendor.status,
-        },
-        `Vendor ${vendor.status}`
-      );
-
-    } catch (err) {
-
-      return error(
-        res,
-        err.message
-      );
-    }
-  };
-
-/*
-|--------------------------------------------------------------------------
-| UPDATE VENDOR
-|--------------------------------------------------------------------------
-*/
-
-export const updateVendor =
-  async (req, res) => {
-
-    try {
-
-      const {
-        name,
-        phone,
-        address,
-        lat,
-        lng,
-        vehicleTypes,
-        scrapTypes,
-      } = req.body;
-
-      if (
-        !name &&
-        !phone &&
-        !address &&
-        !lat &&
-        !lng &&
-        !vehicleTypes &&
-        !scrapTypes
-      ) {
-
-        return error(
-          res,
-          "Provide at least one field to update",
-          400
-        );
-      }
-
-      const update = {};
-
-      if (name) {
-        update.name = name;
-      }
-
-      if (phone) {
-        update.phone = phone;
-      }
-
-      if (address) {
-        update.address =
-          address;
-      }
-
-      if (lat && lng) {
-
-        update.location = {
-          lat: Number(lat),
-          lng: Number(lng),
-        };
-      }
-
-      if (vehicleTypes) {
-        update.vehicleTypes =
-          vehicleTypes;
-      }
-
-      if (scrapTypes) {
-        update.scrapTypes =
-          scrapTypes;
-      }
-
-      const vendor =
-        await Vendor.findByIdAndUpdate(
-          req.params.id,
-          update,
-          {
-            new: true,
-          }
-        ).select(
-          "-password -resetPasswordToken -resetPasswordExpiry"
-        );
-
-      if (!vendor) {
-
-        return error(
-          res,
-          "Vendor not found",
-          404
-        );
-      }
-
-      return success(
-        res,
-        { vendor },
-        "Profile updated"
-      );
-
-    } catch (err) {
-
-      return error(
-        res,
-        err.message
-      );
-    }
-  };
+    return success(
+      res,
+      { vendor }
+    );
+
+  } catch (err) {
+
+    return error(
+      res,
+      err.message
+    );
+  }
+};
