@@ -9,7 +9,7 @@ import { sendSMS } from "../services/sms.service.js";
 
 export const createRequest = async (req, res) => {
   try {
-    const { categoryIds, scrapType, pickupAddress, lat, lng, description, preferredDate, estimatedWeight } = req.body;
+    const { categoryIds, scrapType, pickupAddress, lat, lng, description, preferredDate, estimatedWeight,estimatedPrice } = req.body;
 
     let vehicleType;
 
@@ -50,6 +50,7 @@ const request = await ScrapRequest.create({
       description,
       preferredDate:   preferredDate   || undefined,
       estimatedWeight: estimatedWeight ? Number(estimatedWeight) : undefined,
+      estimatedPrice: estimatedPrice ? Number(estimatedPrice) : 0,
       vehicleType,
       images,
     });

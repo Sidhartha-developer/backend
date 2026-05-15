@@ -45,6 +45,11 @@ categoryIds: [
     {
       type: Number,
     },
+    estimatedPrice:
+{
+  type: Number,
+  default: 0,
+},
     scrapType: {
   type: String,
   enum: ["household", "shop", "small_industry", "large_industry"],
