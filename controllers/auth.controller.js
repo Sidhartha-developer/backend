@@ -63,11 +63,44 @@ export const login = async (req, res) => {
 
     const token = generateToken({ id: account._id, role });
 
-    return success(res, {
-      token,
-      user: { id: account._id, name: account.name, email, role },
-      ...(role === "vendor" && { approvalStatus: account.approvalStatus }),
-    });
+return success(
+  res,
+  {
+
+    token,
+
+    user: {
+
+      id: account._id,
+
+      name: account.name,
+
+      email: account.email,
+
+      phone: account.phone,
+
+      address: account.address,
+
+      role,
+
+      businessName:
+          role === "vendor"
+              ? account.name
+              : null,
+
+      serviceArea:
+          role === "vendor"
+              ? account.address
+              : null,
+    },
+
+    ...(role === "vendor" && {
+
+      approvalStatus:
+          account.approvalStatus,
+    }),
+  }
+);
   } catch (err) {
     return error(res, err.message);
   }
